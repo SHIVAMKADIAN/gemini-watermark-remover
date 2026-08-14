@@ -81,9 +81,26 @@ tighter search window — see `toVideoPerfParams`), which keeps quality high whi
 running several-fold faster; measured ≈11 frames/s throughput for a 1080p corner
 region on this dev machine.
 
+### Watermark geometry (fixed-pixel logo model)
+
+The visible Gemini/Veo watermark is a **fixed-size square logo** inset from a
+corner — not a fraction of the frame. Profiles therefore specify the logo size
+and margin **in pixels**, measured at a canonical export long-side, and the
+resolver scales them linearly to the actual media's long side
+(`profiles/registry.ts → geometryToPixels`). The Gemini figures (96 px logo /
+192 px margin on a ~2816 px export, floored at 36 px) are taken from the
+reverse-engineered profiles in
+[allenk/GeminiWatermarkTool](https://github.com/allenk/GeminiWatermarkTool); a
+legacy pre-3.5 "V1" profile (96/48 px logo, 64/32 px margin) is also included
+in `profiles/gemini`. Video (Omni/Veo) figures are estimates in the same model,
+since that reference covers images only.
+
 Watermark profiles live in `src/profiles/{gemini,omni,veo}` and are trivially
-extensible: each declares supported resolutions, per-orientation geometry
-(as fractions), color/alpha characteristics, and per-mode cleanup params.
+extensible: each declares supported resolutions, the fixed-pixel logo geometry,
+supported orientations, color/alpha characteristics, and per-mode cleanup
+params. Because the box is now small and correctly placed, the mask disturbs far
+less of the image — and the region editor / mask overlay let you calibrate it
+against a specific export.
 
 > **Calibration note.** The bundled geometry/alpha values are best-effort
 > defaults. The reference watermark's exact pixel position/opacity varies by

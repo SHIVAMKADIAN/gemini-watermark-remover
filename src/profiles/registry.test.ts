@@ -41,15 +41,40 @@ describe('profile registry', () => {
     expect(geo.y).toBeGreaterThan(1080 / 2)
   })
 
-  it('resolves geometry that scales with resolution', () => {
+  it('produces a small SQUARE logo box, not a large fraction of the frame', () => {
+    const gemini = getProfile('gemini')
+    const geo = resolveGeometry(gemini, 2816, 2816)
+    expect(geo).not.toBeNull()
+    if (!geo) return
+    // Square box (fixed-pixel logo), roughly the canonical 96px logo + padding.
+    expect(Math.abs(geo.width - geo.height)).toBeLessThanOrEqual(1)
+    expect(geo.width).toBeGreaterThan(80)
+    expect(geo.width).toBeLessThan(200)
+    // Must be a small fraction of the frame, not ~14-24% like the old model.
+    expect(geo.width / 2816).toBeLessThan(0.1)
+  })
+
+  it('scales the logo linearly with the media long side', () => {
     const omni = getProfile('omni')
     const small = resolveGeometry(omni, 1280, 720)
     const large = resolveGeometry(omni, 1920, 1080)
     expect(small).not.toBeNull()
     expect(large).not.toBeNull()
     if (!small || !large) return
-    // Same fractional width -> larger pixel width at higher resolution.
+    // Larger frame -> larger pixel logo, and it stays square.
     expect(large.width).toBeGreaterThan(small.width)
+    expect(Math.abs(large.width - large.height)).toBeLessThanOrEqual(1)
+  })
+
+  it('never floors the logo below the profile minimum on tiny media', () => {
+    const gemini = getProfile('gemini')
+    const geo = resolveGeometry(gemini, 320, 320)
+    expect(geo).not.toBeNull()
+    if (!geo) return
+    // minLogoPx 36 + padding, clamped inside the frame.
+    expect(geo.width).toBeGreaterThanOrEqual(36)
+    expect(geo.x).toBeGreaterThanOrEqual(0)
+    expect(geo.x + geo.width).toBeLessThanOrEqual(320)
   })
 
   it('returns null geometry for unsupported orientation (omni square)', () => {
@@ -57,12 +82,12 @@ describe('profile registry', () => {
     expect(resolveGeometry(omni, 800, 800)).toBeNull()
   })
 
-  it('places veo watermark in the bottom-left', () => {
+  it('places the veo watermark in the bottom-right', () => {
     const veo = getProfile('veo')
     const geo = resolveGeometry(veo, 1920, 1080)
     expect(geo).not.toBeNull()
     if (!geo) return
-    expect(geo.x).toBeLessThan(1920 / 2)
+    expect(geo.x).toBeGreaterThan(1920 / 2)
     expect(geo.y).toBeGreaterThan(1080 / 2)
   })
 })

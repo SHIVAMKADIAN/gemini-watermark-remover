@@ -1,5 +1,5 @@
 import { chromium } from 'playwright'
-import { BASE_URL, BROWSER_PATH } from './_prelude.mjs'
+import { BASE_URL, BROWSER_PATH, watermarkBox } from './_prelude.mjs'
 
 const browser = await chromium.launch({
   executablePath: BROWSER_PATH,
@@ -26,47 +26,45 @@ check('Privacy note present', (await page.getByText(/Your media stays on your de
 
 // --- Build a synthetic watermarked PNG in-page ---
 // This reproduces the reported failure case: a TEXTURED background (sharp
-// vertical stripes) with a bright watermark badge in the corner. A blur/
-// diffusion fill would smear the stripes to a flat mid-grey; the exemplar fill
-// must reconstruct the crisp stripe texture instead.
-// Gemini landscape default: marginX 0.022, marginY 0.028, width 0.16, height 0.075.
-const dataUrl = await page.evaluate(async () => {
-  const W = 640
-  const H = 360
-  const canvas = document.createElement('canvas')
-  canvas.width = W
-  canvas.height = H
-  const ctx = canvas.getContext('2d')
-  const img = ctx.createImageData(W, H)
-  // Sharp vertical-stripe texture (period 8): dark 40 / bright 210. A blur would
-  // smear this to a uniform mid-grey — exemplar fill must keep it bimodal.
-  const stripe = (x) => ((x >> 2) % 2 === 0 ? 40 : 210)
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const o = (y * W + x) * 4
-      const v = stripe(x)
-      img.data[o] = v
-      img.data[o + 1] = v
-      img.data[o + 2] = v
-      img.data[o + 3] = 255
+// vertical stripes) with a bright watermark badge over the fixed-pixel Gemini
+// logo box. A blur/diffusion fill would smear the stripes to a flat mid-grey;
+// the exemplar fill must reconstruct the crisp stripe texture instead.
+const W = 640
+const H = 360
+const box = watermarkBox('gemini', W, H) // {x,y,width,height} the app will mask
+const dataUrl = await page.evaluate(
+  async ({ W, H, box }) => {
+    const canvas = document.createElement('canvas')
+    canvas.width = W
+    canvas.height = H
+    const ctx = canvas.getContext('2d')
+    const img = ctx.createImageData(W, H)
+    // Sharp vertical-stripe texture (period 8): dark 40 / bright 210.
+    const stripe = (x) => ((x >> 2) % 2 === 0 ? 40 : 210)
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const o = (y * W + x) * 4
+        const v = stripe(x)
+        img.data[o] = v
+        img.data[o + 1] = v
+        img.data[o + 2] = v
+        img.data[o + 3] = 255
+      }
     }
-  }
-  // Solid bright watermark badge over the stripes in the gemini landscape region.
-  const wmW = 0.16 * W
-  const wmH = 0.075 * H
-  const wmX = W - 0.022 * W - wmW
-  const wmY = H - 0.028 * H - wmH
-  for (let y = Math.floor(wmY); y < Math.ceil(wmY + wmH); y++) {
-    for (let x = Math.floor(wmX); x < Math.ceil(wmX + wmW); x++) {
-      const o = (y * W + x) * 4
-      img.data[o] = 245
-      img.data[o + 1] = 245
-      img.data[o + 2] = 245
+    // Solid bright watermark badge over the app's mask box.
+    for (let y = Math.floor(box.y); y < box.y + box.height; y++) {
+      for (let x = Math.floor(box.x); x < box.x + box.width; x++) {
+        const o = (y * W + x) * 4
+        img.data[o] = 245
+        img.data[o + 1] = 245
+        img.data[o + 2] = 245
+      }
     }
-  }
-  ctx.putImageData(img, 0, 0)
-  return canvas.toDataURL('image/png')
-})
+    ctx.putImageData(img, 0, 0)
+    return canvas.toDataURL('image/png')
+  },
+  { W, H, box },
+)
 
 // Convert data URL to a File and drop into the input.
 const buffer = Buffer.from(dataUrl.split(',')[1], 'base64')
@@ -87,46 +85,42 @@ check('Notes mention deterministic exemplar-based fill', (await page.getByText(/
 check('Notes mention dimensions preserved', (await page.getByText(/Original dimensions preserved/).count()) > 0)
 
 // --- Pixel verification: fetch the cleaned image from the <img> in the compare view and inspect region pixels ---
-const pixelCheck = await page.evaluate(async () => {
-  const imgs = Array.from(document.querySelectorAll('img'))
-  const cleaned = imgs.find((i) => i.alt === 'Cleaned result')
-  if (!cleaned) return { error: 'cleaned image not found' }
-  const W = 640
-  const H = 360
-  const canvas = document.createElement('canvas')
-  canvas.width = W
-  canvas.height = H
-  const ctx = canvas.getContext('2d')
-  await cleaned.decode()
-  ctx.drawImage(cleaned, 0, 0, W, H)
-  const data = ctx.getImageData(0, 0, W, H).data
+const pixelCheck = await page.evaluate(
+  async ({ W, H, box }) => {
+    const imgs = Array.from(document.querySelectorAll('img'))
+    const cleaned = imgs.find((i) => i.alt === 'Cleaned result')
+    if (!cleaned) return { error: 'cleaned image not found' }
+    const canvas = document.createElement('canvas')
+    canvas.width = W
+    canvas.height = H
+    const ctx = canvas.getContext('2d')
+    await cleaned.decode()
+    ctx.drawImage(cleaned, 0, 0, W, H)
+    const data = ctx.getImageData(0, 0, W, H).data
 
-  // Sample the center of the watermark region.
-  const wmW = 0.16 * W
-  const wmH = 0.075 * H
-  const wmX = W - 0.022 * W - wmW
-  const wmY = H - 0.028 * H - wmH
-  const cx = Math.round(wmX + wmW / 2)
-  const cy = Math.round(wmY + wmH / 2)
-  const centerVal = data[(cy * W + cx) * 4]
+    const cx = Math.round(box.x + box.width / 2)
+    const cy = Math.round(box.y + box.height / 2)
+    const centerVal = data[(cy * W + cx) * 4]
 
-  // Sample a corner far from the watermark (should be untouched stripe).
-  const cornerVal = data[(10 * W + 10) * 4]
+    // Sample a corner far from the watermark (should be untouched stripe).
+    const cornerVal = data[(10 * W + 10) * 4]
 
-  // Measure how many reconstructed pixels are a blurred mid-grey vs. crisp stripe.
-  let mid = 0
-  let total = 0
-  for (let y = Math.floor(wmY) + 2; y < wmY + wmH - 2; y++) {
-    for (let x = Math.floor(wmX) + 2; x < wmX + wmW - 2; x++) {
-      const v = data[(y * W + x) * 4]
-      const nearDark = Math.abs(v - 40) < 50
-      const nearBright = Math.abs(v - 210) < 50
-      if (!nearDark && !nearBright) mid++
-      total++
+    // Measure how many reconstructed pixels are a blurred mid-grey vs. crisp stripe.
+    let mid = 0
+    let total = 0
+    for (let y = Math.floor(box.y) + 2; y < box.y + box.height - 2; y++) {
+      for (let x = Math.floor(box.x) + 2; x < box.x + box.width - 2; x++) {
+        const v = data[(y * W + x) * 4]
+        const nearDark = Math.abs(v - 40) < 50
+        const nearBright = Math.abs(v - 210) < 50
+        if (!nearDark && !nearBright) mid++
+        total++
+      }
     }
-  }
-  return { centerVal, cornerVal, midFraction: mid / total }
-})
+    return { centerVal, cornerVal, midFraction: mid / total }
+  },
+  { W, H, box },
+)
 
 if (pixelCheck.error) {
   check('Pixel verification', false, pixelCheck.error)

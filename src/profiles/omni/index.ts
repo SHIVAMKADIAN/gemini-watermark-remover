@@ -1,16 +1,17 @@
 import type { WatermarkProfile } from '../types'
 
 /**
- * Gemini Omni video export watermark: bottom-right corner badge, present
- * on every frame at a fixed relative position. Geometry is a calibratable
- * best-effort default — use the in-app watermark region editor to
- * fine-tune it against your own exports before running Standard cleanup.
+ * Gemini Omni video export watermark: bottom-right corner badge present on
+ * every frame. The reference tool (allenk/GeminiWatermarkTool) covers Gemini
+ * images only, so the video figures here are estimates in the same fixed-pixel
+ * model (a ~64 px badge with a small margin on a 1920 px-wide frame, scaled by
+ * long side). Fine-tune with the in-app region editor for a given export.
  */
 export const omniProfile: WatermarkProfile = {
   id: 'omni-video',
   name: 'Gemini Omni (video)',
   source: 'omni',
-  description: 'Corner badge watermark used on Gemini Omni video exports.',
+  description: 'Bottom-right corner badge on Gemini Omni video exports.',
   supportedResolutions: [
     { width: 1280, height: 720 },
     { width: 720, height: 1280 },
@@ -19,26 +20,16 @@ export const omniProfile: WatermarkProfile = {
   ],
   aspectTolerance: 0.05,
   geometry: {
-    landscape: {
-      anchor: 'bottom-right',
-      marginXFrac: 0.02,
-      marginYFrac: 0.03,
-      widthFrac: 0.14,
-      heightFrac: 0.07,
-      cornerRadiusFrac: 0.3,
-      featherFrac: 0.1,
-    },
-    portrait: {
-      anchor: 'bottom-right',
-      marginXFrac: 0.03,
-      marginYFrac: 0.018,
-      widthFrac: 0.22,
-      heightFrac: 0.045,
-      cornerRadiusFrac: 0.3,
-      featherFrac: 0.1,
-    },
-    square: null,
+    anchor: 'bottom-right',
+    canonicalLongSide: 1920,
+    logoSizePx: 64,
+    minLogoPx: 44,
+    marginPx: 40,
+    paddingPx: 16,
+    cornerRadiusFrac: 0.3,
+    featherFrac: 0.16,
   },
+  orientations: ['landscape', 'portrait'],
   color: { r: 255, g: 255, b: 255, alpha: 0.5 },
   cleanupParams: {
     auto: {

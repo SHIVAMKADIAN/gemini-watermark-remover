@@ -10,21 +10,28 @@ export type WatermarkAnchor =
   | 'bottom-center'
 
 /**
- * Mask geometry is expressed entirely as fractions of the media's actual
- * pixel dimensions, never fixed CSS pixels, so the same profile maps
- * correctly onto every supported resolution/orientation.
+ * The visible Gemini/Veo watermark is a fixed-size square logo inset from a
+ * corner — NOT a fraction of the frame. Sizes/margins are therefore specified
+ * in pixels, measured at a canonical export long-side, and scaled linearly to
+ * the actual media's long side. This matches the reverse-engineered profiles
+ * in allenk/GeminiWatermarkTool (Gemini logo 36/48/96 px, margins 32/64/192 px)
+ * and keeps the mask small and correctly placed at any resolution.
  */
 export interface WatermarkGeometry {
   anchor: WatermarkAnchor
-  /** Margin from the anchor edges, as a fraction of width/height. */
-  marginXFrac: number
-  marginYFrac: number
-  /** Size of the watermark bounding box, as a fraction of width/height. */
-  widthFrac: number
-  heightFrac: number
-  /** Corner radius of the mask shape, as a fraction of the box's min dimension. */
+  /** Long-side length (px) the measurements below were taken at. */
+  canonicalLongSide: number
+  /** Logo square edge length (px) at the canonical long-side. */
+  logoSizePx: number
+  /** Minimum logo edge (px) after down-scaling to smaller media. */
+  minLogoPx: number
+  /** Gap (px) between the logo and its anchored edges, at the canonical long-side. */
+  marginPx: number
+  /** Extra padding (px, canonical) added around the logo when building the mask. */
+  paddingPx: number
+  /** Corner radius of the mask box, as a fraction of its size. */
   cornerRadiusFrac: number
-  /** Softness of the mask edge (feather), as a fraction of the box's min dimension. */
+  /** Softness of the mask edge (feather), as a fraction of the box's size. */
   featherFrac: number
 }
 
@@ -79,7 +86,9 @@ export interface WatermarkProfile {
   supportedResolutions: Resolution[]
   /** Aspect-ratio tolerance (relative) for matching non-exact resolutions. */
   aspectTolerance: number
-  geometry: Record<Orientation, WatermarkGeometry | null>
+  geometry: WatermarkGeometry
+  /** Orientations this profile knows how to place its watermark for. */
+  orientations: Orientation[]
   color: WatermarkColorProfile
   cleanupParams: Record<CleanupMode, CleanupParams>
 }

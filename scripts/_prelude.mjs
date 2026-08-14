@@ -31,3 +31,27 @@ export function removeTestBundle() {
     /* already gone */
   }
 }
+
+// Mirror of the app's fixed-pixel watermark geometry (src/profiles + registry)
+// so E2E scripts can place a synthetic badge exactly where the app will mask.
+const GEOMETRY = {
+  gemini: { anchor: 'bottom-right', canonicalLongSide: 2816, logoSizePx: 96, minLogoPx: 36, marginPx: 192, paddingPx: 22 },
+  omni: { anchor: 'bottom-right', canonicalLongSide: 1920, logoSizePx: 64, minLogoPx: 44, marginPx: 40, paddingPx: 16 },
+  veo: { anchor: 'bottom-right', canonicalLongSide: 1920, logoSizePx: 48, minLogoPx: 40, marginPx: 44, paddingPx: 16 },
+}
+
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
+
+/** Returns { x, y, width, height } of the watermark mask box for the app. */
+export function watermarkBox(source, W, H) {
+  const g = GEOMETRY[source]
+  const scale = Math.max(W, H) / g.canonicalLongSide
+  const logo = Math.max(g.minLogoPx, Math.round(g.logoSizePx * scale))
+  const margin = Math.round(g.marginPx * scale)
+  const pad = Math.round(g.paddingPx * scale)
+  const size = Math.min(logo + 2 * pad, W, H)
+  let x = W - margin - logo - pad
+  let y = H - margin - logo - pad
+  if (g.anchor === 'bottom-left') x = margin - pad
+  return { x: clamp(x, 0, W - size), y: clamp(y, 0, H - size), width: size, height: size }
+}

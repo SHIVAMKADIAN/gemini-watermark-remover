@@ -1,5 +1,9 @@
 import { chromium } from 'playwright'
-import { BASE_URL, BROWSER_PATH, TEST_BUNDLE_URL, installTestBundle, removeTestBundle } from './_prelude.mjs'
+import { BASE_URL, BROWSER_PATH, TEST_BUNDLE_URL, installTestBundle, removeTestBundle, watermarkBox } from './_prelude.mjs'
+
+const VID_W = 1280
+const VID_H = 720
+const box = watermarkBox('omni', VID_W, VID_H) // where the app will mask
 
 installTestBundle()
 process.on('exit', removeTestBundle)
@@ -22,14 +26,12 @@ await page.goto(BASE_URL, { waitUntil: 'networkidle' })
 // Build a real 1280x720 MP4 in-page with mediabunny: grey background (100) with a
 // white watermark composited in the omni landscape bottom-right region, on every frame.
 console.log('  building synthetic MP4 in-browser (WebCodecs H.264)...')
-const b64 = await page.evaluate(async (BUNDLE_URL) => {
+const b64 = await page.evaluate(async ({ BUNDLE_URL, box, W, H }) => {
   const mb = await import(BUNDLE_URL)
   const { Output, Mp4OutputFormat, BufferTarget, CanvasSource, Quality, canEncodeVideo } = mb
   // This headless Chromium lacks proprietary codecs (no H.264); pick a supported one.
   const codec = (await canEncodeVideo('avc')) ? 'avc' : (await canEncodeVideo('vp9')) ? 'vp9' : 'av1'
 
-  const W = 1280
-  const H = 720
   const FPS = 30
   const DURATION = 1.5
   const canvas = document.createElement('canvas')
@@ -37,11 +39,11 @@ const b64 = await page.evaluate(async (BUNDLE_URL) => {
   canvas.height = H
   const ctx = canvas.getContext('2d')
 
-  // omni landscape geometry: marginX 0.02, marginY 0.03, width 0.14, height 0.07
-  const wmW = 0.14 * W
-  const wmH = 0.07 * H
-  const wmX = W - 0.02 * W - wmW
-  const wmY = H - 0.03 * H - wmH
+  // Watermark badge over the app's fixed-pixel omni mask box.
+  const wmX = box.x
+  const wmY = box.y
+  const wmW = box.width
+  const wmH = box.height
 
   const output = new Output({ format: new Mp4OutputFormat(), target: new BufferTarget() })
   const source = new CanvasSource(canvas, { codec, bitrate: new Quality('high') })
@@ -86,7 +88,7 @@ const b64 = await page.evaluate(async (BUNDLE_URL) => {
   const bytes = new Uint8Array(buf)
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
   return { data: btoa(binary), size: bytes.length, audioAdded }
-}, TEST_BUNDLE_URL)
+}, { BUNDLE_URL: TEST_BUNDLE_URL, box, W: VID_W, H: VID_H })
 
 if (b64.error) {
   check('Build synthetic MP4', false, b64.error)
@@ -130,37 +132,34 @@ if (b64.audioAdded) {
 }
 
 // Verify the cleaned video's pixels: draw a frame to canvas and inspect the region.
-const pixelCheck = await page.evaluate(async () => {
-  const videos = Array.from(document.querySelectorAll('video'))
-  // the cleaned video is the muted one
-  const cleaned = videos.find((v) => v.muted) || videos[0]
-  if (!cleaned) return { error: 'no cleaned video element' }
-  await new Promise((res) => {
-    if (cleaned.readyState >= 2) return res()
-    cleaned.addEventListener('loadeddata', () => res(), { once: true })
-  })
-  cleaned.currentTime = 0.5
-  await new Promise((res) => cleaned.addEventListener('seeked', () => res(), { once: true }))
+const pixelCheck = await page.evaluate(
+  async ({ W, H, box }) => {
+    const videos = Array.from(document.querySelectorAll('video'))
+    // the cleaned video is the muted one
+    const cleaned = videos.find((v) => v.muted) || videos[0]
+    if (!cleaned) return { error: 'no cleaned video element' }
+    await new Promise((res) => {
+      if (cleaned.readyState >= 2) return res()
+      cleaned.addEventListener('loadeddata', () => res(), { once: true })
+    })
+    cleaned.currentTime = 0.5
+    await new Promise((res) => cleaned.addEventListener('seeked', () => res(), { once: true }))
 
-  const W = 1280
-  const H = 720
-  const canvas = document.createElement('canvas')
-  canvas.width = W
-  canvas.height = H
-  const ctx = canvas.getContext('2d')
-  ctx.drawImage(cleaned, 0, 0, W, H)
-  const data = ctx.getImageData(0, 0, W, H).data
+    const canvas = document.createElement('canvas')
+    canvas.width = W
+    canvas.height = H
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(cleaned, 0, 0, W, H)
+    const data = ctx.getImageData(0, 0, W, H).data
 
-  const wmW = 0.14 * W
-  const wmH = 0.07 * H
-  const wmX = W - 0.02 * W - wmW
-  const wmY = H - 0.03 * H - wmH
-  const cx = Math.round(wmX + wmW / 2)
-  const cy = Math.round(wmY + wmH / 2)
-  const centerVal = data[(cy * W + cx) * 4]
-  const cornerVal = data[(100 * W + 100) * 4]
-  return { centerVal, cornerVal }
-})
+    const cx = Math.round(box.x + box.width / 2)
+    const cy = Math.round(box.y + box.height / 2)
+    const centerVal = data[(cy * W + cx) * 4]
+    const cornerVal = data[(100 * W + 100) * 4]
+    return { centerVal, cornerVal }
+  },
+  { W: VID_W, H: VID_H, box },
+)
 
 if (pixelCheck.error) {
   check('Video pixel verification', false, pixelCheck.error)

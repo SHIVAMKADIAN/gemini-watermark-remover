@@ -46,49 +46,58 @@ export function resolveGeometry(
   mediaHeight: number,
 ): ResolvedGeometry | null {
   const orientation: Orientation = getOrientation(mediaWidth, mediaHeight)
-  const geometry = profile.geometry[orientation]
-  if (!geometry) return null
-  return geometryToPixels(geometry, mediaWidth, mediaHeight)
+  if (!profile.orientations.includes(orientation)) return null
+  return geometryToPixels(profile.geometry, mediaWidth, mediaHeight)
 }
 
+const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v))
+
+/**
+ * Computes the watermark mask box in actual pixels. The logo is a fixed square
+ * measured at a canonical export long-side and scaled linearly to this media's
+ * long side, then anchored to a corner with a scaled margin, and expanded by
+ * scaled padding so the mask fully covers the logo (plus its anti-aliased halo).
+ */
 function geometryToPixels(geometry: WatermarkGeometry, mediaWidth: number, mediaHeight: number): ResolvedGeometry {
-  const width = geometry.widthFrac * mediaWidth
-  const height = geometry.heightFrac * mediaHeight
-  const marginX = geometry.marginXFrac * mediaWidth
-  const marginY = geometry.marginYFrac * mediaHeight
+  const longSide = Math.max(mediaWidth, mediaHeight)
+  const scale = longSide / geometry.canonicalLongSide
+
+  const logo = Math.max(geometry.minLogoPx, Math.round(geometry.logoSizePx * scale))
+  const margin = Math.round(geometry.marginPx * scale)
+  const pad = Math.round(geometry.paddingPx * scale)
+  const size = Math.min(logo + 2 * pad, mediaWidth, mediaHeight)
 
   let x: number
   let y: number
   switch (geometry.anchor) {
     case 'bottom-right':
-      x = mediaWidth - marginX - width
-      y = mediaHeight - marginY - height
+      x = mediaWidth - margin - logo - pad
+      y = mediaHeight - margin - logo - pad
       break
     case 'bottom-left':
-      x = marginX
-      y = mediaHeight - marginY - height
+      x = margin - pad
+      y = mediaHeight - margin - logo - pad
       break
     case 'top-right':
-      x = mediaWidth - marginX - width
-      y = marginY
+      x = mediaWidth - margin - logo - pad
+      y = margin - pad
       break
     case 'top-left':
-      x = marginX
-      y = marginY
+      x = margin - pad
+      y = margin - pad
       break
     case 'bottom-center':
-      x = (mediaWidth - width) / 2
-      y = mediaHeight - marginY - height
+      x = (mediaWidth - size) / 2
+      y = mediaHeight - margin - logo - pad
       break
   }
 
-  const minDim = Math.min(width, height)
   return {
-    x,
-    y,
-    width,
-    height,
-    cornerRadius: geometry.cornerRadiusFrac * minDim,
-    feather: geometry.featherFrac * minDim,
+    x: clamp(x, 0, mediaWidth - size),
+    y: clamp(y, 0, mediaHeight - size),
+    width: size,
+    height: size,
+    cornerRadius: geometry.cornerRadiusFrac * size,
+    feather: geometry.featherFrac * size,
   }
 }

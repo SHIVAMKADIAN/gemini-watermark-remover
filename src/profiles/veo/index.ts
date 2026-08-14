@@ -1,16 +1,16 @@
 import type { WatermarkProfile } from '../types'
 
 /**
- * Google Flow / Veo video export watermark: bottom-left corner badge.
- * Geometry is a calibratable best-effort default — use the in-app
- * watermark region editor to fine-tune it against your own exports
- * before running Standard cleanup.
+ * Google Flow / Veo video export watermark: a ~48 px "Veo" diamond badge in
+ * the bottom-right corner (per the reference tool's notes: 48×48 at 1080p,
+ * ~44×44 compact at 720p). Fixed-pixel model scaled by long side; fine-tune
+ * with the in-app region editor for a given export.
  */
 export const veoProfile: WatermarkProfile = {
   id: 'veo-video',
   name: 'Google Flow / Veo (video)',
   source: 'veo',
-  description: 'Corner badge watermark used on Google Flow / Veo video exports.',
+  description: 'Bottom-right "Veo" diamond badge on Google Flow / Veo video exports.',
   supportedResolutions: [
     { width: 1280, height: 720 },
     { width: 720, height: 1280 },
@@ -19,26 +19,16 @@ export const veoProfile: WatermarkProfile = {
   ],
   aspectTolerance: 0.05,
   geometry: {
-    landscape: {
-      anchor: 'bottom-left',
-      marginXFrac: 0.02,
-      marginYFrac: 0.03,
-      widthFrac: 0.14,
-      heightFrac: 0.07,
-      cornerRadiusFrac: 0.3,
-      featherFrac: 0.1,
-    },
-    portrait: {
-      anchor: 'bottom-left',
-      marginXFrac: 0.03,
-      marginYFrac: 0.018,
-      widthFrac: 0.22,
-      heightFrac: 0.045,
-      cornerRadiusFrac: 0.3,
-      featherFrac: 0.1,
-    },
-    square: null,
+    anchor: 'bottom-right',
+    canonicalLongSide: 1920,
+    logoSizePx: 48,
+    minLogoPx: 40,
+    marginPx: 44,
+    paddingPx: 16,
+    cornerRadiusFrac: 0.3,
+    featherFrac: 0.16,
   },
+  orientations: ['landscape', 'portrait'],
   color: { r: 255, g: 255, b: 255, alpha: 0.5 },
   cleanupParams: {
     auto: {
