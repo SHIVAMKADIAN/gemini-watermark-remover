@@ -34,6 +34,7 @@ export function VideoPage() {
   const [source, setSource] = useState<WatermarkSource>('omni')
   const [mode, setMode] = useState<CleanupMode>('auto')
   const [showMask, setShowMask] = useState(false)
+  const [detectMark, setDetectMark] = useState(true)
   const [override, setOverride] = useState<WatermarkRegionOverride | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -90,8 +91,8 @@ export function VideoPage() {
 
   const runProcess = useCallback(() => {
     if (!file) return
-    void process(file, source, mode, override).catch(() => {})
-  }, [file, source, mode, override, process])
+    void process(file, source, mode, override, detectMark).catch(() => {})
+  }, [file, source, mode, override, detectMark, process])
 
   const downloadName = file ? `${file.name.replace(/\.[^.]+$/, '')}-cleaned.mp4` : 'cleaned.mp4'
 
@@ -145,6 +146,8 @@ export function VideoPage() {
               onModeChange={setMode}
               showMask={showMask}
               onShowMaskChange={setShowMask}
+              detectMark={detectMark}
+              onDetectMarkChange={setDetectMark}
               onCalibrate={() => setEditorOpen(true)}
               sourceOptions={SOURCE_OPTIONS}
             />

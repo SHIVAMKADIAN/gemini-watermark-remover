@@ -45,7 +45,13 @@ export function useVideoProcessor() {
   }, [])
 
   const process = useCallback(
-    (file: File, source: WatermarkSource, mode: CleanupMode, override?: WatermarkRegionOverride | null) => {
+    (
+      file: File,
+      source: WatermarkSource,
+      mode: CleanupMode,
+      override?: WatermarkRegionOverride | null,
+      detectMark?: boolean,
+    ) => {
       return new Promise<VideoProcessResult>((resolve, reject) => {
         setError(null)
         setIsProcessing(true)
@@ -102,7 +108,7 @@ export function useVideoProcessor() {
           reject(new Error(message))
         }
 
-        const req: VideoWorkerRequest = { id, file, source, mode, override: override ?? null }
+        const req: VideoWorkerRequest = { id, file, source, mode, override: override ?? null, detectMark }
         worker.postMessage(req)
       })
     },

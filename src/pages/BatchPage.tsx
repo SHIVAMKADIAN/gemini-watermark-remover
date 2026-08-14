@@ -25,6 +25,7 @@ function processOne(
   file: File,
   source: WatermarkSource,
   mode: CleanupMode,
+  detectMark: boolean,
   onProgress: (progress: number, message: string) => void,
 ): Promise<{ blob: Blob; fps: number; duration: number; audioPreserved: boolean; geometry: MaskGeometryPixels | null }> {
   return new Promise((resolve, reject) => {
@@ -47,7 +48,7 @@ function processOne(
       worker.terminate()
       reject(new Error('Processing failed. Your original file has not been modified.'))
     }
-    const req: VideoWorkerRequest = { id, file, source, mode, override: null }
+    const req: VideoWorkerRequest = { id, file, source, mode, override: null, detectMark }
     worker.postMessage(req)
   })
 }
@@ -57,6 +58,7 @@ export function BatchPage() {
   const [source, setSource] = useState<WatermarkSource>('omni')
   const [mode, setMode] = useState<CleanupMode>('auto')
   const [isRunning, setIsRunning] = useState(false)
+  const [detectMark, setDetectMark] = useState(true)
   const [zipping, setZipping] = useState(false)
   const [validationError, setValidationError] = useState<string | null>(null)
   const itemsRef = useRef<QueueItem[]>(items)
@@ -120,7 +122,7 @@ export function BatchPage() {
       if (!current || current.status !== 'waiting') continue
       dispatch({ type: 'start', id: current.id })
       try {
-        const res = await processOne(current.file, source, mode, (progress, message) =>
+        const res = await processOne(current.file, source, mode, detectMark, (progress, message) =>
           dispatch({ type: 'progress', id: current.id, progress, message }),
         )
         const url = createTrackedObjectUrl(res.blob)
@@ -140,7 +142,7 @@ export function BatchPage() {
       }
     }
     setIsRunning(false)
-  }, [source, mode])
+  }, [source, mode, detectMark])
 
   const downloadItem = useCallback((it: QueueItem) => {
     if (!it.resultBlob) return
@@ -224,6 +226,8 @@ export function BatchPage() {
               onModeChange={setMode}
               showMask={false}
               onShowMaskChange={() => {}}
+              detectMark={detectMark}
+              onDetectMarkChange={setDetectMark}
               onCalibrate={() => {}}
               sourceOptions={SOURCE_OPTIONS}
             />

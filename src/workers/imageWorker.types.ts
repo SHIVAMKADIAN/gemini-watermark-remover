@@ -18,6 +18,7 @@ export interface ImageWorkerRequest {
   source: WatermarkSource
   mode: CleanupMode
   override?: WatermarkRegionOverride | null
+  detectMark?: boolean
 }
 
 export interface ImageWorkerProgressMsg {

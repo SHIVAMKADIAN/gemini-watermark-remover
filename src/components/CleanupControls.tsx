@@ -20,6 +20,8 @@ interface CleanupControlsProps {
   onModeChange: (mode: CleanupMode) => void
   showMask: boolean
   onShowMaskChange: (show: boolean) => void
+  detectMark: boolean
+  onDetectMarkChange: (detect: boolean) => void
   onCalibrate: () => void
   sourceOptions?: SourceOption[]
 }
@@ -31,6 +33,8 @@ export function CleanupControls({
   onModeChange,
   showMask,
   onShowMaskChange,
+  detectMark,
+  onDetectMarkChange,
   onCalibrate,
   sourceOptions = SOURCE_OPTIONS,
 }: CleanupControlsProps) {
@@ -83,23 +87,41 @@ export function CleanupControls({
         </div>
       </fieldset>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle pt-4">
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-text-secondary">
+      <div className="space-y-3 border-t border-border-subtle pt-4">
+        <label className="flex cursor-pointer items-start gap-2 text-sm text-text-secondary">
           <input
             type="checkbox"
-            checked={showMask}
-            onChange={(e) => onShowMaskChange(e.target.checked)}
-            className="focus-ring h-4 w-4 rounded border-border-strong bg-surface-2 accent-accent"
+            checked={detectMark}
+            onChange={(e) => onDetectMarkChange(e.target.checked)}
+            className="focus-ring mt-0.5 h-4 w-4 rounded border-border-strong bg-surface-2 accent-accent"
           />
-          Show processing mask
+          <span>
+            Detect mark inside region
+            <span className="block text-xs text-text-muted">
+              Reconstruct only the bright watermark pixels found in the region, keeping surrounding detail. Turn off to
+              rebuild the whole region box.
+            </span>
+          </span>
         </label>
-        <button
-          type="button"
-          onClick={onCalibrate}
-          className="focus-ring rounded-lg border border-border-subtle px-3 py-1.5 text-sm font-medium text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
-        >
-          Adjust watermark region…
-        </button>
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-text-secondary">
+            <input
+              type="checkbox"
+              checked={showMask}
+              onChange={(e) => onShowMaskChange(e.target.checked)}
+              className="focus-ring h-4 w-4 rounded border-border-strong bg-surface-2 accent-accent"
+            />
+            Show processing mask
+          </label>
+          <button
+            type="button"
+            onClick={onCalibrate}
+            className="focus-ring rounded-lg border border-border-subtle px-3 py-1.5 text-sm font-medium text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
+          >
+            Adjust watermark region…
+          </button>
+        </div>
       </div>
     </section>
   )

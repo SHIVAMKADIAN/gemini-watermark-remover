@@ -9,6 +9,7 @@ const white: WatermarkColorProfile = { r: 255, g: 255, b: 255, alpha: 0.5 }
 
 const exemplarParams: CleanupParams = {
   method: 'exemplar',
+  detectWithinRegion: false,
   patchRadius: 3,
   searchRadius: 40,
   exemplarStride: 1,

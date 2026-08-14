@@ -44,6 +44,7 @@ export function useImageProcessor() {
       source: WatermarkSource,
       mode: CleanupMode,
       override?: WatermarkRegionOverride | null,
+      detectMark?: boolean,
     ) => {
       return new Promise<ImageProcessResult>((resolve, reject) => {
         setError(null)
@@ -106,6 +107,7 @@ export function useImageProcessor() {
               source,
               mode,
               override: override ?? null,
+              detectMark,
             }
             worker.postMessage(req, [buf])
           })

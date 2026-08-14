@@ -7,6 +7,7 @@ const white: WatermarkColorProfile = { r: 255, g: 255, b: 255, alpha: 0.5 }
 
 const softParams: CleanupParams = {
   method: 'reverse-alpha',
+  detectWithinRegion: false,
   patchRadius: 4,
   searchRadius: 48,
   exemplarStride: 2,

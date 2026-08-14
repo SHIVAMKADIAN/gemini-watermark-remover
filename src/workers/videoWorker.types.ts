@@ -8,6 +8,7 @@ export interface VideoWorkerRequest {
   source: WatermarkSource
   mode: CleanupMode
   override?: WatermarkRegionOverride | null
+  detectMark?: boolean
 }
 
 export interface VideoWorkerProgressMsg {

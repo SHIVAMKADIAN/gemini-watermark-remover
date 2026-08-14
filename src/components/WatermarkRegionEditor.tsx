@@ -105,8 +105,10 @@ export function WatermarkRegionEditor({
         </div>
 
         <p className="mb-4 text-xs leading-relaxed text-text-muted">
-          Drag the box over the watermark, and drag its bottom-right corner to resize. This calibrates the
-          restoration region against your actual export — the default position is a best-effort estimate.
+          Drag the box over the watermark, and drag its bottom-right corner to resize. Cover the whole mark — if it
+          sits away from the corner or has more than one part (e.g. two sparkles), draw one box around all of it. With
+          “Detect mark inside region” on, only the bright watermark pixels inside the box are rebuilt, so surrounding
+          detail is kept.
         </p>
 
         <div

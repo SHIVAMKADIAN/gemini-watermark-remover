@@ -1,5 +1,6 @@
 import type { ResolvedGeometry } from '../../profiles/registry'
 import type { CleanupParams, WatermarkColorProfile } from '../../profiles/types'
+import { detectMarkMask } from './detectMark'
 import { exemplarInpaint } from './exemplarInpaint'
 import { fallbackEdgeDirectedFill } from './fallbackFill'
 import { inpaintRegion } from './inpaint'
@@ -55,8 +56,16 @@ export function applyPreparedMask(
   color: WatermarkColorProfile,
   params: CleanupParams,
 ): number {
+  // Reverse-alpha needs the full feathered box; the fill methods can be
+  // tightened to only the detected mark pixels (computed per-frame from the
+  // current content so it adapts to a moving/animated mark and its background).
+  const mask =
+    params.detectWithinRegion && params.method !== 'reverse-alpha'
+      ? detectMarkMask(pixels, width, height, prepared.bounds, prepared.mask, prepared.peakAlpha)
+      : prepared.mask
+
   if (params.method === 'exemplar') {
-    return exemplarInpaint(pixels, width, height, prepared.mask, prepared.bounds, prepared.peakAlpha, {
+    return exemplarInpaint(pixels, width, height, mask, prepared.bounds, prepared.peakAlpha, {
       patchRadius: params.patchRadius,
       searchRadius: params.searchRadius,
       stride: params.exemplarStride,
@@ -64,7 +73,7 @@ export function applyPreparedMask(
   }
 
   if (params.method === 'inpaint') {
-    return inpaintRegion(pixels, width, height, prepared.mask, prepared.bounds, prepared.peakAlpha, params.inpaintIterations)
+    return inpaintRegion(pixels, width, height, mask, prepared.bounds, prepared.peakAlpha, params.inpaintIterations)
   }
 
   const unstable = applyReverseAlpha(pixels, width, height, prepared.mask, color, prepared.unstableThreshold)
@@ -77,7 +86,10 @@ export function applyPreparedMask(
 export interface RestoreResult {
   mask: Float32Array
   bounds: { minX: number; minY: number; maxX: number; maxY: number }
+  /** Upper bound on affected pixels (the geometric region). */
   pixelsModified: number
+  /** Pixels actually reconstructed (after mark detection tightening). */
+  reconstructedPixels: number
   fallbackPixels: number
 }
 
@@ -96,6 +108,12 @@ export function restoreWatermarkRegion(
   params: CleanupParams,
 ): RestoreResult {
   const prepared = prepareMask(geometry, color, params, width, height)
-  const fallbackPixels = applyPreparedMask(pixels, width, height, prepared, color, params)
-  return { mask: prepared.mask, bounds: prepared.bounds, pixelsModified: prepared.pixelsModified, fallbackPixels }
+  const reconstructedPixels = applyPreparedMask(pixels, width, height, prepared, color, params)
+  return {
+    mask: prepared.mask,
+    bounds: prepared.bounds,
+    pixelsModified: prepared.pixelsModified,
+    reconstructedPixels,
+    fallbackPixels: reconstructedPixels,
+  }
 }

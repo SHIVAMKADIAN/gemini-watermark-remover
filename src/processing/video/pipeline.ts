@@ -9,6 +9,7 @@ export interface VideoProcessOptions {
   source: WatermarkSource
   mode: CleanupMode
   override?: WatermarkRegionOverride | null
+  detectMark?: boolean
   onProgress: (progress: ProcessingProgress) => void
 }
 
@@ -23,7 +24,7 @@ export interface VideoProcessResult {
 }
 
 export async function processVideo(file: File, options: VideoProcessOptions): Promise<VideoProcessResult> {
-  const { source, mode, override, onProgress } = options
+  const { source, mode, override, detectMark, onProgress } = options
   onProgress({ stage: 'decoding', progress: 0.02, message: 'Reading video…' })
 
   const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS })
@@ -41,7 +42,8 @@ export async function processVideo(file: File, options: VideoProcessOptions): Pr
   onProgress({ stage: 'analyzing', progress: 0.05, message: 'Locating watermark region…' })
   const resolution = resolveWatermark(source, mode, width, height, override)
   const { color, geometry } = resolution
-  const params = toVideoPerfParams(resolution.params)
+  const basePerf = toVideoPerfParams(resolution.params)
+  const params = detectMark === undefined ? basePerf : { ...basePerf, detectWithinRegion: detectMark }
   if (!geometry) {
     input.dispose()
     throw new MediaValidationError(

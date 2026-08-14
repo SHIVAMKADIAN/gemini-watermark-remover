@@ -62,6 +62,12 @@ export interface CleanupParams {
    *   light background).
    */
   method: RestorationMethod
+  /**
+   * When true (and not using reverse-alpha), detect the actual bright watermark
+   * pixels inside the region and reconstruct only those, preserving surrounding
+   * detail. Falls back to the whole region box on low-contrast areas.
+   */
+  detectWithinRegion: boolean
   /** Patch half-size for the `'exemplar'` method. */
   patchRadius: number
   /** Local search-window half-size for the `'exemplar'` method. */

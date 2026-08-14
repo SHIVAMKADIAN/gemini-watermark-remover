@@ -30,6 +30,7 @@ export const geminiProfile: WatermarkProfile = {
   cleanupParams: {
     auto: {
       method: 'exemplar',
+      detectWithinRegion: true,
       patchRadius: 4,
       searchRadius: 64,
       exemplarStride: 2,
@@ -40,6 +41,7 @@ export const geminiProfile: WatermarkProfile = {
     },
     soft: {
       method: 'reverse-alpha',
+      detectWithinRegion: false,
       patchRadius: 4,
       searchRadius: 48,
       exemplarStride: 2,
@@ -50,6 +52,7 @@ export const geminiProfile: WatermarkProfile = {
     },
     standard: {
       method: 'exemplar',
+      detectWithinRegion: true,
       patchRadius: 5,
       searchRadius: 96,
       exemplarStride: 2,

@@ -10,12 +10,13 @@ function post(msg: VideoWorkerResponse): void {
 }
 
 ctx.onmessage = async (ev: MessageEvent<VideoWorkerRequest>) => {
-  const { id, file, source, mode, override } = ev.data
+  const { id, file, source, mode, override, detectMark } = ev.data
   try {
     const result = await processVideo(file, {
       source,
       mode,
       override,
+      detectMark,
       onProgress: (p) =>
         post({
           id,

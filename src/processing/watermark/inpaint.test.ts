@@ -10,6 +10,7 @@ const white: WatermarkColorProfile = { r: 255, g: 255, b: 255, alpha: 0.5 }
 
 const inpaintParams: CleanupParams = {
   method: 'inpaint',
+  detectWithinRegion: false,
   patchRadius: 4,
   searchRadius: 48,
   exemplarStride: 2,

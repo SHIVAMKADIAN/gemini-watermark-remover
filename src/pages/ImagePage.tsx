@@ -26,6 +26,7 @@ export function ImagePage() {
   const [source, setSource] = useState<WatermarkSource>('gemini')
   const [mode, setMode] = useState<CleanupMode>('auto')
   const [showMask, setShowMask] = useState(false)
+  const [detectMark, setDetectMark] = useState(true)
   const [override, setOverride] = useState<WatermarkRegionOverride | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -75,8 +76,8 @@ export function ImagePage() {
 
   const runProcess = useCallback(() => {
     if (!file) return
-    void process(file, format, source, mode, override).catch(() => {})
-  }, [file, format, source, mode, override, process])
+    void process(file, format, source, mode, override, detectMark).catch(() => {})
+  }, [file, format, source, mode, override, detectMark, process])
 
   const openEditor = useCallback(() => {
     if (metadata) setEditorOpen(true)
@@ -123,6 +124,8 @@ export function ImagePage() {
               onModeChange={setMode}
               showMask={showMask}
               onShowMaskChange={setShowMask}
+              detectMark={detectMark}
+              onDetectMarkChange={setDetectMark}
               onCalibrate={openEditor}
             />
 
