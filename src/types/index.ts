@@ -14,17 +14,17 @@ export const CLEANUP_MODES: CleanupModeInfo[] = [
   {
     id: 'auto',
     label: 'Auto',
-    description: 'Recommended for most Gemini and Omni files. Analyzes the watermark region and picks restoration strength automatically.',
+    description: 'Recommended for most Gemini and Omni files. Reconstructs the watermark area from the surrounding pixels (deterministic content-aware fill).',
   },
   {
     id: 'soft',
     label: 'Soft',
-    description: 'For simple or bright backgrounds. Applies a conservative reverse-alpha correction only.',
+    description: 'For translucent marks on bright, simple backgrounds. Uses reverse-alpha to recover detail under the mark instead of filling it in.',
   },
   {
     id: 'standard',
     label: 'Standard',
-    description: 'For darker, textured, or detailed backgrounds. Adds edge-directed reconstruction where reverse-alpha alone is unreliable.',
+    description: 'For darker, textured, or busy backgrounds. Stronger content-aware reconstruction with more smoothing.',
   },
 ]
 

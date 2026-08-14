@@ -25,9 +25,12 @@ check('Hero heading present', (await page.getByRole('heading', { name: /Clean yo
 check('Privacy note present', (await page.getByText(/Your media stays on your device/).count()) > 0)
 
 // --- Build a synthetic watermarked PNG in-page ---
-// original grey value 100 everywhere; bottom-right region composited with white @ alpha 0.5.
+// This reproduces the reported failure case: a DARK background (grey 50, like a
+// dark wall) with a BRIGHT watermark badge in the corner. Reverse-alpha would
+// clamp this to black; content-aware fill must restore it to the ~50 wall.
 // Gemini landscape default: marginX 0.022, marginY 0.028, width 0.16, height 0.075.
-const dataUrl = await page.evaluate(async () => {
+const BG = 50
+const dataUrl = await page.evaluate(async (BG) => {
   const W = 640
   const H = 360
   const canvas = document.createElement('canvas')
@@ -35,31 +38,28 @@ const dataUrl = await page.evaluate(async () => {
   canvas.height = H
   const ctx = canvas.getContext('2d')
   const img = ctx.createImageData(W, H)
-  const ORIGINAL = 100
   for (let i = 0; i < img.data.length; i += 4) {
-    img.data[i] = ORIGINAL
-    img.data[i + 1] = ORIGINAL
-    img.data[i + 2] = ORIGINAL
+    img.data[i] = BG
+    img.data[i + 1] = BG
+    img.data[i + 2] = BG
     img.data[i + 3] = 255
   }
-  // Composite white watermark at alpha 0.5 in the gemini landscape region.
+  // Bright watermark badge (value ~205) in the gemini landscape region.
   const wmW = 0.16 * W
   const wmH = 0.075 * H
   const wmX = W - 0.022 * W - wmW
   const wmY = H - 0.028 * H - wmH
-  const alpha = 0.5
   for (let y = Math.floor(wmY); y < Math.ceil(wmY + wmH); y++) {
     for (let x = Math.floor(wmX); x < Math.ceil(wmX + wmW); x++) {
       const o = (y * W + x) * 4
-      const composite = alpha * 255 + (1 - alpha) * ORIGINAL
-      img.data[o] = composite
-      img.data[o + 1] = composite
-      img.data[o + 2] = composite
+      img.data[o] = 205
+      img.data[o + 1] = 205
+      img.data[o + 2] = 205
     }
   }
   ctx.putImageData(img, 0, 0)
   return canvas.toDataURL('image/png')
-})
+}, BG)
 
 // Convert data URL to a File and drop into the input.
 const buffer = Buffer.from(dataUrl.split(',')[1], 'base64')
@@ -76,7 +76,7 @@ await page.getByRole('button', { name: 'Clean image' }).click()
 // Wait for the download card.
 await page.getByText('Your cleaned file is ready').waitFor({ timeout: 20000 })
 check('Cleanup completed and download card shown', true)
-check('Notes mention deterministic reverse-alpha', (await page.getByText(/reverse-alpha/i).count()) > 0)
+check('Notes mention deterministic content-aware fill', (await page.getByText(/content-aware fill/i).count()) > 0)
 check('Notes mention dimensions preserved', (await page.getByText(/Original dimensions preserved/).count()) > 0)
 
 // --- Pixel verification: fetch the cleaned image from the <img> in the compare view and inspect region pixels ---
@@ -103,7 +103,7 @@ const pixelCheck = await page.evaluate(async () => {
   const cy = Math.round(wmY + wmH / 2)
   const centerVal = data[(cy * W + cx) * 4]
 
-  // Sample a corner far from the watermark (should be untouched = 100).
+  // Sample a corner far from the watermark (should be untouched = background).
   const cornerVal = data[(10 * W + 10) * 4]
 
   return { centerVal, cornerVal }
@@ -112,16 +112,22 @@ const pixelCheck = await page.evaluate(async () => {
 if (pixelCheck.error) {
   check('Pixel verification', false, pixelCheck.error)
 } else {
-  // Watermarked composite was 178; original 100. Cleaned center should move back toward 100.
+  // The reported bug: cleaned region came out pure black (0). It must instead be
+  // reconstructed to ~the dark wall (BG=50), i.e. the badge is gone but NOT black.
   check(
-    'Watermark region restored toward original (center << 178)',
-    pixelCheck.centerVal < 140,
-    `center=${pixelCheck.centerVal}, expected < 140 (was 178 watermarked, 100 original)`,
+    'Watermark region is NOT a black box (regression)',
+    pixelCheck.centerVal > 20,
+    `center=${pixelCheck.centerVal}, must be > 20 (black-box bug produced 0)`,
   )
   check(
-    'Pixels outside watermark untouched (corner == 100)',
-    Math.abs(pixelCheck.cornerVal - 100) <= 2,
-    `corner=${pixelCheck.cornerVal}, expected ~100`,
+    'Watermark region reconstructed to background, badge removed',
+    pixelCheck.centerVal >= 20 && pixelCheck.centerVal <= 90,
+    `center=${pixelCheck.centerVal}, expected ~${BG} (badge was 205)`,
+  )
+  check(
+    'Pixels outside watermark untouched (corner == background)',
+    Math.abs(pixelCheck.cornerVal - BG) <= 2,
+    `corner=${pixelCheck.cornerVal}, expected ~${BG}`,
   )
 }
 

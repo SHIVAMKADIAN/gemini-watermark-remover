@@ -40,7 +40,20 @@ export interface WatermarkColorProfile {
   alpha: number
 }
 
+export type RestorationMethod = 'inpaint' | 'reverse-alpha'
+
 export interface CleanupParams {
+  /**
+   * Restoration strategy for the masked region:
+   * - `'inpaint'`: deterministic content-aware fill from surrounding pixels
+   *   (robust default — works on any background, never clamps to black).
+   * - `'reverse-alpha'`: invert the known watermark composite (best only when
+   *   the area under the mark is bright, e.g. a translucent white badge on a
+   *   light background).
+   */
+  method: RestorationMethod
+  /** Diffusion smoothing iterations for the `'inpaint'` method. */
+  inpaintIterations: number
   /** Multiplier applied to the profile's peak alpha before inversion. */
   alphaScale: number
   /** Whether to run the deterministic edge-directed fallback reconstruction. */

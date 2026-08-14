@@ -1,12 +1,14 @@
 import type { ResolvedGeometry } from '../../profiles/registry'
 import type { CleanupParams, WatermarkColorProfile } from '../../profiles/types'
 import { fallbackEdgeDirectedFill } from './fallbackFill'
+import { inpaintRegion } from './inpaint'
 import { generateWatermarkMask, maskBounds } from './mask'
 import { applyReverseAlpha } from './reverseAlpha'
 
 export interface PreparedMask {
   mask: Float32Array
   bounds: { minX: number; minY: number; maxX: number; maxY: number }
+  peakAlpha: number
   unstableThreshold: number
   pixelsModified: number
 }
@@ -35,13 +37,14 @@ export function prepareMask(
     }
   }
 
-  return { mask, bounds, unstableThreshold, pixelsModified }
+  return { mask, bounds, peakAlpha, unstableThreshold, pixelsModified }
 }
 
 /**
  * Applies a precomputed mask to a single RGBA frame, in place. Touches only
  * pixels inside the (feathered) watermark mask; everything else is left
- * byte-for-byte untouched.
+ * byte-for-byte untouched. Returns the number of pixels reconstructed by the
+ * fallback/inpaint path (for diagnostics).
  */
 export function applyPreparedMask(
   pixels: Uint8ClampedArray,
@@ -51,6 +54,10 @@ export function applyPreparedMask(
   color: WatermarkColorProfile,
   params: CleanupParams,
 ): number {
+  if (params.method === 'inpaint') {
+    return inpaintRegion(pixels, width, height, prepared.mask, prepared.bounds, prepared.peakAlpha, params.inpaintIterations)
+  }
+
   const unstable = applyReverseAlpha(pixels, width, height, prepared.mask, color, prepared.unstableThreshold)
   if (params.useFallbackReconstruction && unstable.length > 0) {
     fallbackEdgeDirectedFill(pixels, width, height, unstable, prepared.bounds)

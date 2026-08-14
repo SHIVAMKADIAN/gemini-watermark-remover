@@ -13,6 +13,7 @@ import { useImageProcessor } from '../hooks/useImageProcessor'
 import { useMediaMetadata } from '../hooks/useMediaMetadata'
 import type { WatermarkSource } from '../profiles/types'
 import { MediaValidationError, type CleanupMode, type ImageFormat, type WatermarkRegionOverride } from '../types'
+import { methodNoteForMode } from '../processing/watermark/detect'
 import { extensionForFormat } from '../utils/imageFormat'
 import { createTrackedObjectUrl, revokeTrackedObjectUrl } from '../utils/objectUrl'
 import { defaultRegionOverride } from '../utils/region'
@@ -170,7 +171,7 @@ export function ImagePage() {
                 result.geometry
                   ? `Restoration limited to ${result.pixelsModified.toLocaleString()} pixels in the watermark region — all other pixels untouched.`
                   : 'No watermark region matched this image; output equals the original.',
-                'Reverse-alpha compositing used; deterministic, no generative inpainting.',
+                methodNoteForMode(source, mode),
               ]}
             />
             <div className="flex gap-2">

@@ -9,6 +9,7 @@ import { ProgressBar } from '../components/ProgressBar'
 import { UploadDropzone } from '../components/UploadDropzone'
 import { VideoCompare } from '../components/VideoCompare'
 import { WatermarkRegionEditor } from '../components/WatermarkRegionEditor'
+import { methodNoteForMode } from '../processing/watermark/detect'
 import { useMediaMetadata } from '../hooks/useMediaMetadata'
 import { useVideoProcessor } from '../hooks/useVideoProcessor'
 import type { WatermarkSource } from '../profiles/types'
@@ -195,7 +196,7 @@ export function VideoPage() {
                     ? 'Audio could not be copied and was omitted (browser codec limitation).'
                     : 'Source had no audio track.',
                 'Video re-encoded to apply the watermark restoration — encoding parameters may differ from the source. Not bit-for-bit identical.',
-                'Watermark restoration applied only to the corner region via reverse-alpha compositing.',
+                methodNoteForMode(source, mode),
               ]}
             />
             <div className="flex gap-2">

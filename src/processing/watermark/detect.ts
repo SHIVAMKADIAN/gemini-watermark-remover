@@ -6,6 +6,14 @@ export function defaultSourceForKind(kind: MediaKind): WatermarkSource {
   return kind === 'image' ? 'gemini' : 'omni'
 }
 
+/** Human-readable description of the restoration method a mode will use. */
+export function methodNoteForMode(source: WatermarkSource, mode: CleanupMode): string {
+  const method = getProfile(source).cleanupParams[mode].method
+  return method === 'inpaint'
+    ? 'Deterministic content-aware fill reconstructs the region from surrounding pixels — no generative AI, no covering patch.'
+    : 'Reverse-alpha compositing recovers the pixels under a translucent mark — deterministic, no generative inpainting.'
+}
+
 export interface WatermarkResolution {
   profile: WatermarkProfile
   params: CleanupParams

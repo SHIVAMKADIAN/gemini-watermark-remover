@@ -44,8 +44,8 @@ export const geminiProfile: WatermarkProfile = {
   },
   color: { r: 255, g: 255, b: 255, alpha: 0.55 },
   cleanupParams: {
-    auto: { alphaScale: 1.0, useFallbackReconstruction: true, fallbackAlphaThreshold: 0.82 },
-    soft: { alphaScale: 0.85, useFallbackReconstruction: false, fallbackAlphaThreshold: 0.95 },
-    standard: { alphaScale: 1.15, useFallbackReconstruction: true, fallbackAlphaThreshold: 0.7 },
+    auto: { method: 'inpaint', inpaintIterations: 140, alphaScale: 1.0, useFallbackReconstruction: true, fallbackAlphaThreshold: 0.82 },
+    soft: { method: 'reverse-alpha', inpaintIterations: 60, alphaScale: 0.85, useFallbackReconstruction: false, fallbackAlphaThreshold: 0.95 },
+    standard: { method: 'inpaint', inpaintIterations: 240, alphaScale: 1.15, useFallbackReconstruction: true, fallbackAlphaThreshold: 0.7 },
   },
 }
