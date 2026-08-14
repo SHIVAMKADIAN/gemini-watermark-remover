@@ -9,9 +9,14 @@ export function defaultSourceForKind(kind: MediaKind): WatermarkSource {
 /** Human-readable description of the restoration method a mode will use. */
 export function methodNoteForMode(source: WatermarkSource, mode: CleanupMode): string {
   const method = getProfile(source).cleanupParams[mode].method
-  return method === 'inpaint'
-    ? 'Deterministic content-aware fill reconstructs the region from surrounding pixels — no generative AI, no covering patch.'
-    : 'Reverse-alpha compositing recovers the pixels under a translucent mark — deterministic, no generative inpainting.'
+  switch (method) {
+    case 'exemplar':
+      return 'Deterministic exemplar-based fill copies real texture from nearby areas — the mark is removed, not blurred or patched over. No generative AI.'
+    case 'inpaint':
+      return 'Deterministic content-aware fill reconstructs the region from surrounding pixels — no generative AI, no covering patch.'
+    case 'reverse-alpha':
+      return 'Reverse-alpha compositing recovers the pixels under a translucent mark — deterministic, no generative inpainting.'
+  }
 }
 
 export interface WatermarkResolution {
@@ -19,6 +24,21 @@ export interface WatermarkResolution {
   params: CleanupParams
   color: WatermarkColorProfile
   geometry: ResolvedGeometry | null
+}
+
+/**
+ * Exemplar inpainting runs once per frame for video, so trade a little search
+ * breadth for speed: coarser candidate stride and a tighter search window.
+ * Texture is locally stationary, so quality stays high while per-frame cost
+ * drops several-fold. Non-exemplar methods are returned unchanged.
+ */
+export function toVideoPerfParams(params: CleanupParams): CleanupParams {
+  if (params.method !== 'exemplar') return params
+  return {
+    ...params,
+    exemplarStride: Math.max(params.exemplarStride, 3),
+    searchRadius: Math.min(params.searchRadius, 44),
+  }
 }
 
 /**

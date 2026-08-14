@@ -1,5 +1,6 @@
 import type { ResolvedGeometry } from '../../profiles/registry'
 import type { CleanupParams, WatermarkColorProfile } from '../../profiles/types'
+import { exemplarInpaint } from './exemplarInpaint'
 import { fallbackEdgeDirectedFill } from './fallbackFill'
 import { inpaintRegion } from './inpaint'
 import { generateWatermarkMask, maskBounds } from './mask'
@@ -54,6 +55,14 @@ export function applyPreparedMask(
   color: WatermarkColorProfile,
   params: CleanupParams,
 ): number {
+  if (params.method === 'exemplar') {
+    return exemplarInpaint(pixels, width, height, prepared.mask, prepared.bounds, prepared.peakAlpha, {
+      patchRadius: params.patchRadius,
+      searchRadius: params.searchRadius,
+      stride: params.exemplarStride,
+    })
+  }
+
   if (params.method === 'inpaint') {
     return inpaintRegion(pixels, width, height, prepared.mask, prepared.bounds, prepared.peakAlpha, params.inpaintIterations)
   }

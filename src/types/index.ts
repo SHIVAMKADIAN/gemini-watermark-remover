@@ -14,7 +14,7 @@ export const CLEANUP_MODES: CleanupModeInfo[] = [
   {
     id: 'auto',
     label: 'Auto',
-    description: 'Recommended for most Gemini and Omni files. Reconstructs the watermark area from the surrounding pixels (deterministic content-aware fill).',
+    description: 'Recommended for most Gemini and Omni files. Copies real texture from nearby areas to remove the mark without blurring (exemplar-based fill).',
   },
   {
     id: 'soft',
@@ -24,7 +24,7 @@ export const CLEANUP_MODES: CleanupModeInfo[] = [
   {
     id: 'standard',
     label: 'Standard',
-    description: 'For darker, textured, or busy backgrounds. Stronger content-aware reconstruction with more smoothing.',
+    description: 'For busy, detailed, or high-contrast backgrounds. Searches a wider area for matching texture to reconstruct the region.',
   },
 ]
 

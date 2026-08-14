@@ -37,34 +37,49 @@ result is predictable and never hallucinates detail.
 
 ## How the watermark restoration works
 
-The visible watermark is a semi-transparent overlay composited onto the frame:
+All methods operate **only inside a feathered rounded-rectangle mask**
+generated at native resolution (`processing/watermark/mask.ts`). Pixels
+outside it are provably untouched (mask alpha is exactly 0 there).
 
-```
-observed = alpha · watermarkColor + (1 - alpha) · original
-```
+The mask region is reconstructed by one of three deterministic methods
+(`src/profiles/*` picks per mode), none of which use generative AI:
 
-Given the watermark's (known/estimated) color and alpha, we invert it
-per channel, **only inside the mask**:
+**1. Exemplar-based fill — the default (`processing/watermark/exemplarInpaint.ts`)**
 
-```
-original ≈ (observed - alpha · watermarkColor) / (1 - alpha)
-```
+A Criminisi-style algorithm. The region is onion-peeled from its boundary
+inward; for each patch on the fill front it searches the surrounding **original**
+pixels for the best-matching texture patch (sum-of-squared-difference over the
+already-known pixels) and copies it in. Because it copies real texture rather
+than averaging, it **removes the mark without blurring** — it reconstructs the
+background's detail (ground, walls, railings) instead of smearing it. Source
+patches are only ever taken from original known pixels, never from synthesized
+ones, so nothing is invented.
 
-- The mask is a **feathered rounded rectangle** generated at native resolution
-  (`processing/watermark/mask.ts`). Pixels outside it are provably untouched
-  (mask alpha is exactly 0 there).
-- Where `alpha` is too close to 1 for a stable inversion, those pixels are
-  deferred to a **deterministic edge-directed fill**
-  (`processing/watermark/fallbackFill.ts`): each unresolved pixel is
-  interpolated by inverse distance from the nearest real pixels in the four
-  cardinal directions. This is propagation of adjacent real content — **not**
-  AI generation.
-- Cleanup modes tune the alpha scale and whether the fallback runs:
-  - **Auto** — balanced defaults, fallback on.
-  - **Soft** — conservative reverse-alpha only, no fallback. Best for bright/
-    simple backgrounds.
-  - **Standard** — stronger correction + fallback. Best for dark/busy
-    backgrounds.
+**2. Diffusion fill (`processing/watermark/inpaint.ts`)**
+
+Edge-directed seed + Laplace/Gauss-Seidel smoothing. Fast and clean on flat
+backgrounds, but blurs texture — kept as an internal option/fallback.
+
+**3. Reverse-alpha (`processing/watermark/reverseAlpha.ts`)**
+
+Inverts the watermark composite `observed = α·watermark + (1−α)·original`
+→ `original ≈ (observed − α·watermark) / (1−α)`, per channel. Only valid when
+the area under the mark is bright (on a dark background the subtraction clamps
+to black), so it's reserved for the Soft mode. High-α pixels that can't be
+stably inverted fall back to edge-directed fill
+(`processing/watermark/fallbackFill.ts`).
+
+Cleanup modes:
+- **Auto** — exemplar fill. Recommended; removes the mark without blur on any
+  background.
+- **Soft** — reverse-alpha, for translucent marks on bright, simple backgrounds.
+- **Standard** — exemplar fill with a wider texture search, for busy/detailed
+  backgrounds.
+
+Video uses a faster exemplar configuration per frame (coarser candidate stride,
+tighter search window — see `toVideoPerfParams`), which keeps quality high while
+running several-fold faster; measured ≈11 frames/s throughput for a 1080p corner
+region on this dev machine.
 
 Watermark profiles live in `src/profiles/{gemini,omni,veo}` and are trivially
 extensible: each declares supported resolutions, per-orientation geometry

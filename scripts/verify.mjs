@@ -25,12 +25,12 @@ check('Hero heading present', (await page.getByRole('heading', { name: /Clean yo
 check('Privacy note present', (await page.getByText(/Your media stays on your device/).count()) > 0)
 
 // --- Build a synthetic watermarked PNG in-page ---
-// This reproduces the reported failure case: a DARK background (grey 50, like a
-// dark wall) with a BRIGHT watermark badge in the corner. Reverse-alpha would
-// clamp this to black; content-aware fill must restore it to the ~50 wall.
+// This reproduces the reported failure case: a TEXTURED background (sharp
+// vertical stripes) with a bright watermark badge in the corner. A blur/
+// diffusion fill would smear the stripes to a flat mid-grey; the exemplar fill
+// must reconstruct the crisp stripe texture instead.
 // Gemini landscape default: marginX 0.022, marginY 0.028, width 0.16, height 0.075.
-const BG = 50
-const dataUrl = await page.evaluate(async (BG) => {
+const dataUrl = await page.evaluate(async () => {
   const W = 640
   const H = 360
   const canvas = document.createElement('canvas')
@@ -38,13 +38,20 @@ const dataUrl = await page.evaluate(async (BG) => {
   canvas.height = H
   const ctx = canvas.getContext('2d')
   const img = ctx.createImageData(W, H)
-  for (let i = 0; i < img.data.length; i += 4) {
-    img.data[i] = BG
-    img.data[i + 1] = BG
-    img.data[i + 2] = BG
-    img.data[i + 3] = 255
+  // Sharp vertical-stripe texture (period 8): dark 40 / bright 210. A blur would
+  // smear this to a uniform mid-grey — exemplar fill must keep it bimodal.
+  const stripe = (x) => ((x >> 2) % 2 === 0 ? 40 : 210)
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const o = (y * W + x) * 4
+      const v = stripe(x)
+      img.data[o] = v
+      img.data[o + 1] = v
+      img.data[o + 2] = v
+      img.data[o + 3] = 255
+    }
   }
-  // Bright watermark badge (value ~205) in the gemini landscape region.
+  // Solid bright watermark badge over the stripes in the gemini landscape region.
   const wmW = 0.16 * W
   const wmH = 0.075 * H
   const wmX = W - 0.022 * W - wmW
@@ -52,14 +59,14 @@ const dataUrl = await page.evaluate(async (BG) => {
   for (let y = Math.floor(wmY); y < Math.ceil(wmY + wmH); y++) {
     for (let x = Math.floor(wmX); x < Math.ceil(wmX + wmW); x++) {
       const o = (y * W + x) * 4
-      img.data[o] = 205
-      img.data[o + 1] = 205
-      img.data[o + 2] = 205
+      img.data[o] = 245
+      img.data[o + 1] = 245
+      img.data[o + 2] = 245
     }
   }
   ctx.putImageData(img, 0, 0)
   return canvas.toDataURL('image/png')
-}, BG)
+})
 
 // Convert data URL to a File and drop into the input.
 const buffer = Buffer.from(dataUrl.split(',')[1], 'base64')
@@ -76,7 +83,7 @@ await page.getByRole('button', { name: 'Clean image' }).click()
 // Wait for the download card.
 await page.getByText('Your cleaned file is ready').waitFor({ timeout: 20000 })
 check('Cleanup completed and download card shown', true)
-check('Notes mention deterministic content-aware fill', (await page.getByText(/content-aware fill/i).count()) > 0)
+check('Notes mention deterministic exemplar-based fill', (await page.getByText(/exemplar-based fill/i).count()) > 0)
 check('Notes mention dimensions preserved', (await page.getByText(/Original dimensions preserved/).count()) > 0)
 
 // --- Pixel verification: fetch the cleaned image from the <img> in the compare view and inspect region pixels ---
@@ -103,31 +110,44 @@ const pixelCheck = await page.evaluate(async () => {
   const cy = Math.round(wmY + wmH / 2)
   const centerVal = data[(cy * W + cx) * 4]
 
-  // Sample a corner far from the watermark (should be untouched = background).
+  // Sample a corner far from the watermark (should be untouched stripe).
   const cornerVal = data[(10 * W + 10) * 4]
 
-  return { centerVal, cornerVal }
+  // Measure how many reconstructed pixels are a blurred mid-grey vs. crisp stripe.
+  let mid = 0
+  let total = 0
+  for (let y = Math.floor(wmY) + 2; y < wmY + wmH - 2; y++) {
+    for (let x = Math.floor(wmX) + 2; x < wmX + wmW - 2; x++) {
+      const v = data[(y * W + x) * 4]
+      const nearDark = Math.abs(v - 40) < 50
+      const nearBright = Math.abs(v - 210) < 50
+      if (!nearDark && !nearBright) mid++
+      total++
+    }
+  }
+  return { centerVal, cornerVal, midFraction: mid / total }
 })
 
 if (pixelCheck.error) {
   check('Pixel verification', false, pixelCheck.error)
 } else {
-  // The reported bug: cleaned region came out pure black (0). It must instead be
-  // reconstructed to ~the dark wall (BG=50), i.e. the badge is gone but NOT black.
+  // The reported bug: the region came out as a blurred smudge. Exemplar fill must
+  // reconstruct the crisp stripe texture, so most pixels are near a stripe value
+  // (40 or 210), NOT a blurred mid-grey.
   check(
-    'Watermark region is NOT a black box (regression)',
-    pixelCheck.centerVal > 20,
-    `center=${pixelCheck.centerVal}, must be > 20 (black-box bug produced 0)`,
+    'Watermark badge removed (center no longer the 245 badge)',
+    pixelCheck.centerVal < 235,
+    `center=${pixelCheck.centerVal}, badge was 245`,
   )
   check(
-    'Watermark region reconstructed to background, badge removed',
-    pixelCheck.centerVal >= 20 && pixelCheck.centerVal <= 90,
-    `center=${pixelCheck.centerVal}, expected ~${BG} (badge was 205)`,
+    'Texture preserved, region is NOT blurred to mid-grey',
+    pixelCheck.midFraction < 0.25,
+    `blurred fraction=${pixelCheck.midFraction.toFixed(2)}, must be < 0.25 (a blur fill would be ~1.0)`,
   )
   check(
-    'Pixels outside watermark untouched (corner == background)',
-    Math.abs(pixelCheck.cornerVal - BG) <= 2,
-    `corner=${pixelCheck.cornerVal}, expected ~${BG}`,
+    'Pixels outside watermark untouched (corner stripe intact)',
+    pixelCheck.cornerVal === 40 || pixelCheck.cornerVal === 210,
+    `corner=${pixelCheck.cornerVal}, expected a crisp stripe value`,
   )
 }
 

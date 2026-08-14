@@ -2,7 +2,7 @@ import { ALL_FORMATS, BlobSource, BufferTarget, Conversion, Input, Mp4OutputForm
 import type { WatermarkSource } from '../../profiles/types'
 import { MediaValidationError, type CleanupMode, type ProcessingProgress, type WatermarkRegionOverride } from '../../types'
 import { applyPreparedMask, prepareMask } from '../watermark/restore'
-import { resolveWatermark } from '../watermark/detect'
+import { resolveWatermark, toVideoPerfParams } from '../watermark/detect'
 import type { MaskGeometryPixels } from '../../workers/imageWorker.types'
 
 export interface VideoProcessOptions {
@@ -39,7 +39,9 @@ export async function processVideo(file: File, options: VideoProcessOptions): Pr
   const fps = (await videoTrack.computePacketStats()).averagePacketRate
 
   onProgress({ stage: 'analyzing', progress: 0.05, message: 'Locating watermark region…' })
-  const { params, color, geometry } = resolveWatermark(source, mode, width, height, override)
+  const resolution = resolveWatermark(source, mode, width, height, override)
+  const { color, geometry } = resolution
+  const params = toVideoPerfParams(resolution.params)
   if (!geometry) {
     input.dispose()
     throw new MediaValidationError(
