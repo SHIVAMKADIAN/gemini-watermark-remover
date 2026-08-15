@@ -10,13 +10,14 @@ function post(msg: VideoWorkerResponse): void {
 }
 
 ctx.onmessage = async (ev: MessageEvent<VideoWorkerRequest>) => {
-  const { id, file, source, mode, override, detectMark } = ev.data
+  const { id, file, source, mode, override, detectMark, engine } = ev.data
   try {
     const result = await processVideo(file, {
       source,
       mode,
       override,
       detectMark,
+      engine,
       onProgress: (p) =>
         post({
           id,
@@ -37,6 +38,8 @@ ctx.onmessage = async (ev: MessageEvent<VideoWorkerRequest>) => {
       duration: result.duration,
       fps: result.fps,
       audioPreserved: result.audioPreserved,
+      engine: result.engine,
+      temporalCoverage: result.temporalCoverage,
       geometry: result.geometry,
     })
   } catch (err) {

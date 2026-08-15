@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CleanupControls } from '../components/CleanupControls'
+import { EngineSelector } from '../components/EngineSelector'
 import { DownloadCard } from '../components/DownloadCard'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { Hero } from '../components/Hero'
@@ -13,6 +14,7 @@ import { methodNoteForMode } from '../processing/watermark/detect'
 import { useMediaMetadata } from '../hooks/useMediaMetadata'
 import { useVideoProcessor } from '../hooks/useVideoProcessor'
 import type { WatermarkSource } from '../profiles/types'
+import type { VideoEngine } from '../processing/video/pipeline'
 import { MediaValidationError, type CleanupMode, type WatermarkRegionOverride } from '../types'
 import {
   checkWebCodecsSupport,
@@ -33,6 +35,7 @@ export function VideoPage() {
   const [originalUrl, setOriginalUrl] = useState<string | null>(null)
   const [source, setSource] = useState<WatermarkSource>('omni')
   const [mode, setMode] = useState<CleanupMode>('auto')
+  const [engine, setEngine] = useState<VideoEngine>('spatial')
   const [showMask, setShowMask] = useState(false)
   const [detectMark, setDetectMark] = useState(true)
   const [override, setOverride] = useState<WatermarkRegionOverride | null>(null)
@@ -91,8 +94,8 @@ export function VideoPage() {
 
   const runProcess = useCallback(() => {
     if (!file) return
-    void process(file, source, mode, override, detectMark).catch(() => {})
-  }, [file, source, mode, override, detectMark, process])
+    void process(file, source, mode, override, detectMark, engine).catch(() => {})
+  }, [file, source, mode, override, detectMark, engine, process])
 
   const downloadName = file ? `${file.name.replace(/\.[^.]+$/, '')}-cleaned.mp4` : 'cleaned.mp4'
 
@@ -138,6 +141,10 @@ export function VideoPage() {
         {metadata && metadata.kind === 'video' && (
           <>
             <MediaInspector metadata={metadata} />
+
+            <section aria-label="Reconstruction engine" className="rounded-2xl border border-border-subtle bg-surface-1 p-5">
+              <EngineSelector engine={engine} onChange={setEngine} />
+            </section>
 
             <CleanupControls
               source={source}
@@ -199,7 +206,9 @@ export function VideoPage() {
                     ? 'Audio could not be copied and was omitted (browser codec limitation).'
                     : 'Source had no audio track.',
                 'Video re-encoded to apply the watermark restoration — encoding parameters may differ from the source. Not bit-for-bit identical.',
-                methodNoteForMode(source, mode),
+                result.engine === 'temporal'
+                  ? `Temporal engine: ${Math.round((result.temporalCoverage ?? 0) * 100)}% of masked pixels were reconstructed from real background revealed in other frames; the rest were filled spatially.`
+                  : methodNoteForMode(source, mode),
               ]}
             />
             <div className="flex gap-2">

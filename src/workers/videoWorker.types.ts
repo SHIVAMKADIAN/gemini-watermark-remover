@@ -1,5 +1,6 @@
 import type { WatermarkSource } from '../profiles/types'
 import type { CleanupMode, ProcessingStage, WatermarkRegionOverride } from '../types'
+import type { VideoEngine } from '../processing/video/pipeline'
 import type { MaskGeometryPixels } from './imageWorker.types'
 
 export interface VideoWorkerRequest {
@@ -9,6 +10,7 @@ export interface VideoWorkerRequest {
   mode: CleanupMode
   override?: WatermarkRegionOverride | null
   detectMark?: boolean
+  engine?: VideoEngine
 }
 
 export interface VideoWorkerProgressMsg {
@@ -30,6 +32,8 @@ export interface VideoWorkerSuccessMsg {
   duration: number
   fps: number
   audioPreserved: boolean
+  engine: VideoEngine
+  temporalCoverage?: number
   geometry: MaskGeometryPixels | null
 }
 

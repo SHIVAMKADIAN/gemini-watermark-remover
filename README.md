@@ -81,6 +81,44 @@ tighter search window — see `toVideoPerfParams`), which keeps quality high whi
 running several-fold faster; measured ≈11 frames/s throughput for a 1080p corner
 region on this dev machine.
 
+### Video reconstruction engines: Spatial vs Temporal
+
+Video offers two engines (picker on the Video tab):
+
+- **Spatial** (default) — the exemplar/reverse-alpha methods above, run
+  independently per frame.
+- **Temporal (reveal)** — a browser-feasible reinterpretation of flow-guided
+  video inpainting (inspired by the `vidfill` spec / ProPainter / FGVC line of
+  work). Its principle is **retrieval, not generation**: when the scene or
+  camera moves, the real background behind a static mark is exposed in *other*
+  frames, so instead of guessing it spatially we find it and warp it in. Real
+  pixels are temporally consistent by construction, which avoids the flicker of
+  per-frame generation.
+
+  Because RAFT/SAM2 don't run in a browser, the implementation uses **classical
+  global-motion estimation** (`processing/video/motion.ts` — coarse-to-fine
+  translation search on unmasked pixels) instead of dense learned flow, and the
+  user's region mask instead of SAM2. Per window of frames it:
+  1. estimates background motion between adjacent frames,
+  2. for each masked pixel, chains that motion to nearby frames (probing
+     ±1,±2,±4,±8,±16…) and takes a **single** bilinear sample from the first
+     frame where the location is revealed (sample-once — no chained resampling
+     blur),
+  3. **Poisson-blends** the retrieved patch (`processing/video/poisson.ts`) so
+     borrowed pixels from a differently-exposed frame don't leave a seam,
+  4. routes pixels no frame ever revealed to the spatial exemplar fill.
+
+  The result card reports the **temporal coverage** — the fraction of masked
+  pixels satisfied from real background vs. filled spatially. The pipeline reads
+  frames in overlapping windows (`processing/video/pipeline.ts`) so memory stays
+  bounded, and audio is still copied through untouched.
+
+  **Honest limits:** a *static camera over a static occluder* never reveals the
+  background — coverage drops to ~0 and it falls back to spatial (surfaced in
+  the coverage number). Motion is modelled as global translation/pan, so strong
+  parallax, rotation, or zoom are only approximated. This is a classical
+  approximation of the learned pipeline, not RAFT-grade dense flow.
+
 ### Watermark geometry (fixed-pixel logo model)
 
 The visible Gemini/Veo watermark is a **fixed-size square logo** inset from a

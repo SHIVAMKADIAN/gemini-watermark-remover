@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { WatermarkSource } from '../profiles/types'
 import type { CleanupMode, ProcessingProgress, WatermarkRegionOverride } from '../types'
+import type { VideoEngine } from '../processing/video/pipeline'
 import { createTrackedObjectUrl, revokeTrackedObjectUrl } from '../utils/objectUrl'
 import type { VideoWorkerRequest, VideoWorkerResponse } from '../workers/videoWorker.types'
 import type { MaskGeometryPixels } from '../workers/imageWorker.types'
@@ -13,6 +14,8 @@ export interface VideoProcessResult {
   duration: number
   fps: number
   audioPreserved: boolean
+  engine: VideoEngine
+  temporalCoverage?: number
   geometry: MaskGeometryPixels | null
 }
 
@@ -51,6 +54,7 @@ export function useVideoProcessor() {
       mode: CleanupMode,
       override?: WatermarkRegionOverride | null,
       detectMark?: boolean,
+      engine?: VideoEngine,
     ) => {
       return new Promise<VideoProcessResult>((resolve, reject) => {
         setError(null)
@@ -83,6 +87,8 @@ export function useVideoProcessor() {
               duration: msg.duration,
               fps: msg.fps,
               audioPreserved: msg.audioPreserved,
+              engine: msg.engine,
+              temporalCoverage: msg.temporalCoverage,
               geometry: msg.geometry,
             }
             setResult(processed)
@@ -108,7 +114,7 @@ export function useVideoProcessor() {
           reject(new Error(message))
         }
 
-        const req: VideoWorkerRequest = { id, file, source, mode, override: override ?? null, detectMark }
+        const req: VideoWorkerRequest = { id, file, source, mode, override: override ?? null, detectMark, engine }
         worker.postMessage(req)
       })
     },
