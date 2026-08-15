@@ -1,0 +1,31 @@
+# Quality preset: 720p, full completion network, long windows.
+# Budget ~8–12GB VRAM. Slower; best temporal consistency.
+
+inference:
+  resolution: 720
+  window: 60
+  overlap: 10
+
+mask:
+  dilate_radius: 8
+  median_window: 1
+  feather_radius: 4
+
+flow:
+  estimator: raft
+  raft_iters: 32
+  raft_scale: 0.25
+  homography_residual_gate: 1.0   # only trust the fast path when it's very confident
+
+completion:
+  enabled: true
+  edge_constrained: true
+
+propagation:
+  max_hops: 80
+  probe_offsets: [1, 2, 4, 8, 16, 32, 64]
+  poisson_seam_blend: true
+
+synthesis:
+  model: sparse_attention
+  attention_window: 28

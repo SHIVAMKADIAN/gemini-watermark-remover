@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vidfill"
+version = "0.1.0"
+description = "Flow-guided video inpainting for object removal — Apache-2.0, browser-free, runs on a consumer GPU."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "vidfill contributors" }]
+keywords = ["video", "inpainting", "object-removal", "optical-flow", "propagation"]
+
+# Core deps that the classical spine needs. The learned stages (SAM2, RAFT,
+# completion net, synthesis) pull in the heavier optional extras below so the
+# base install stays light and importable for the CPU-runnable pieces + tests.
+dependencies = [
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+# Media IO (PyAV streaming decode/encode) and classical CV (homography).
+io = ["av>=12", "opencv-python-headless>=4.9"]
+# GPU / learned stages. Not required for the classical spine or the test suite.
+models = ["torch>=2.2", "torchvision>=0.17"]
+ui = ["gradio>=4"]
+dev = ["pytest>=8", "ruff>=0.4"]
+all = ["vidfill[io,models,ui,dev]"]
+
+[project.scripts]
+vidfill = "vidfill.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vidfill"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
