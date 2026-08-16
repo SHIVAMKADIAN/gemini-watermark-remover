@@ -1,0 +1,22 @@
+wmserver
+Copyright 2025 wmserver contributors — Apache-2.0
+
+This service wraps several inpainting backends behind adapters. License terms
+differ; verify against current upstream before deployment (especially commercial):
+
+Permissive (safe):
+- FastAPI, Uvicorn, Starlette   — MIT/BSD
+- OpenCV (opencv-python-headless) — Apache-2.0
+- Pillow                        — HPND (permissive)
+- vidfill (sibling package)     — Apache-2.0
+
+Model backends (optional extras):
+- IOPaint                       — Apache-2.0 (wraps LaMa and others)
+- LaMa `big-lama` weights       — verify weight license separately
+- ProPainter (sczhou/ProPainter) — **S-Lab NON-COMMERCIAL license**. Fine for
+  personal/research use; NOT permitted for commercial deployment. The classical
+  `vidfill`-based video backend is the permissive, always-available alternative.
+
+The default `auto` backend selection prefers the model and falls back to the
+classical CPU backend, so no non-permissive component is required to run the
+service.

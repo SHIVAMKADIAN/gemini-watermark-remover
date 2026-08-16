@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wmserver"
+version = "0.1.0"
+description = "Server-backed watermark/object removal API — FastAPI + job queue + GPU worker, wrapping vidfill."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "python-multipart>=0.0.9",
+    "pydantic>=2",
+    "pydantic-settings>=2",
+    "numpy>=1.24",
+    "pillow>=10",
+    # The classical image fallback + homography use OpenCV; small, CPU-only.
+    "opencv-python-headless>=4.9",
+    # NOTE: the video classical fallback reuses the sibling `vidfill` package,
+    # which is not on PyPI. Install it alongside this one:
+    #   pip install -e ../vidfill -e '.[dev]'
+]
+
+[project.optional-dependencies]
+# GPU model backends. Not required for the API, queue, or classical fallback.
+lama = ["iopaint>=1.3", "torch>=2.2"]
+propainter = ["torch>=2.2", "torchvision>=0.17"]
+redis = ["redis>=5"]
+dev = ["pytest>=8", "httpx>=0.27"]
+all = ["wmserver[lama,propainter,redis,dev]"]
+
+[project.scripts]
+wmserver = "wmserver.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wmserver"]
+
+# vidfill lives in the sibling directory; install it editable alongside:
+#   pip install -e ../vidfill -e '.[dev]'
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
