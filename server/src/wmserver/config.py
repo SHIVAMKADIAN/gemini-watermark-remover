@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     data_dir: Path = Path("./data")
     max_upload_mb: int = 512
 
+    # CORS origins allowed to call the API from a browser (comma-separated in env,
+    # e.g. WM_CORS_ORIGINS='["http://localhost:3000"]'). Defaults to local dev.
+    cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
     # Queue backend: "memory" (in-process) or "redis"
     queue_backend: str = "memory"
     redis_url: str = "redis://localhost:6379/0"

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from .config import Settings, get_settings
@@ -32,6 +33,12 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             await worker.stop()
 
     app = FastAPI(title="wmserver", version="0.1.0", lifespan=lifespan)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.state.settings = settings
     app.state.store = store
     app.state.queue = queue
