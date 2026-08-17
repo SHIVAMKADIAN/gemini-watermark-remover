@@ -8,14 +8,18 @@ serves requests (at classical quality) instead of erroring.
 from __future__ import annotations
 
 import logging
+from typing import Optional
 
+from ..config import Settings
 from .base import ImageInpainter, VideoInpainter
 from .classical import ClassicalImageInpainter, ClassicalVideoInpainter
 
 log = logging.getLogger("wmserver.registry")
 
 
-def select_image_backend(name: str, device: str = "cpu") -> ImageInpainter:
+def select_image_backend(name: str, settings: Optional[Settings] = None) -> ImageInpainter:
+    settings = settings or Settings()
+    device = settings.device
     name = (name or "auto").lower()
     if name in ("classical", "classical-cv"):
         return ClassicalImageInpainter()
@@ -23,7 +27,7 @@ def select_image_backend(name: str, device: str = "cpu") -> ImageInpainter:
         try:
             from .lama import LaMaInpainter
 
-            return LaMaInpainter(device=device)
+            return LaMaInpainter(device=device, settings=settings)
         except Exception as exc:  # NotImplementedError when extra missing
             if name == "lama":
                 raise
@@ -32,7 +36,9 @@ def select_image_backend(name: str, device: str = "cpu") -> ImageInpainter:
     raise ValueError(f"unknown image backend: {name!r}")
 
 
-def select_video_backend(name: str, device: str = "cpu") -> VideoInpainter:
+def select_video_backend(name: str, settings: Optional[Settings] = None) -> VideoInpainter:
+    settings = settings or Settings()
+    device = settings.device
     name = (name or "auto").lower()
     if name in ("classical", "classical-vidfill"):
         return ClassicalVideoInpainter()
@@ -40,7 +46,7 @@ def select_video_backend(name: str, device: str = "cpu") -> VideoInpainter:
         try:
             from .propainter import ProPainterInpainter
 
-            return ProPainterInpainter(device=device)
+            return ProPainterInpainter(device=device, settings=settings)
         except Exception as exc:
             if name == "propainter":
                 raise

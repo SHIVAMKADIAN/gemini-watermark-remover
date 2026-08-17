@@ -25,7 +25,7 @@ def _process_image(store: JobStore, job: Job, settings: Settings) -> None:
     if job.params.region is None:
         raise ValueError("an image job needs a removal region")
     mask = region_to_mask(job.params.region, h, w)
-    backend = select_image_backend(job.params.image_backend or settings.image_backend, settings.device)
+    backend = select_image_backend(job.params.image_backend or settings.image_backend, settings)
     store.update(job.id, backend=backend.name, progress=0.3, message=f"Inpainting with {backend.name}…")
     out = backend.inpaint(image, mask)
     save_image(out, job.result_path)
@@ -40,7 +40,7 @@ def _process_video(store: JobStore, job: Job, settings: Settings) -> None:
     if job.params.region is None:
         raise ValueError("a video job needs a removal region")
     masks = region_to_mask_stack(job.params.region, t, h, w)
-    backend = select_video_backend(job.params.video_backend or settings.video_backend, settings.device)
+    backend = select_video_backend(job.params.video_backend or settings.video_backend, settings)
     store.update(job.id, backend=backend.name, progress=0.15, message=f"Processing with {backend.name}…")
 
     def on_progress(p: float, msg: str) -> None:

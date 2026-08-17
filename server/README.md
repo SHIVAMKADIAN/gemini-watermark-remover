@@ -75,7 +75,43 @@ object, supply per-frame masks from a tracker (see `media/masks.py`).
 
 `WM_DATA_DIR`, `WM_MAX_UPLOAD_MB`, `WM_QUEUE_BACKEND` (`memory`|`redis`),
 `WM_REDIS_URL`, `WM_WORKER_CONCURRENCY`, `WM_IMAGE_BACKEND`, `WM_VIDEO_BACKEND`,
-`WM_DEVICE` (`cpu`|`cuda`).
+`WM_DEVICE` (`cpu`|`cuda`). GPU-model knobs (`WM_LAMA_*`, `WM_PROPAINTER_*`) are
+in `.env.example`.
+
+## GPU model backends
+
+The default install is CPU-only (classical OpenCV + `vidfill`) so everything
+runs and is testable without a GPU. The two model backends are opt-in and slot
+in behind `auto` (which prefers the model, falls back to classical on any
+import/setup failure):
+
+**LaMa (images)** — via IOPaint (Apache-2.0):
+
+```bash
+pip install '.[lama]'                 # torch + iopaint
+export WM_DEVICE=cuda WM_IMAGE_BACKEND=auto   # auto → LaMa; classical if it can't load
+```
+
+The adapter degrades `cuda`→`cpu` if no GPU is visible, and re-asserts the
+input resolution so the output always matches the source dimensions.
+
+**ProPainter (video)** — S-Lab **NON-COMMERCIAL**, so it is *not* vendored.
+Clone it yourself, fetch its weights, and point the server at the checkout:
+
+```bash
+git clone https://github.com/sczhou/ProPainter   # + fetch weights per its README
+export WM_PROPAINTER_DIR=/abs/path/to/ProPainter
+export WM_DEVICE=cuda WM_VIDEO_BACKEND=auto      # auto → ProPainter; classical otherwise
+```
+
+The adapter writes the frames+masks to a temp dir, runs ProPainter's
+`inference_propainter.py` as a subprocess (version-tolerant — no reimplemented
+model wiring), then **composites the model output back over the untouched
+pixels** (feathered by the mask), so everything outside the removal region stays
+byte-for-byte the original. Tuning knobs: `WM_PROPAINTER_{NEIGHBOR_LENGTH,
+REF_STRIDE,SUBVIDEO_LENGTH,RAFT_ITER,FP16,PYTHON}`. If ProPainter pins a torch
+version that clashes with the server's, install it in its own venv and set
+`WM_PROPAINTER_PYTHON` to that interpreter.
 
 ## Notes / limitations
 

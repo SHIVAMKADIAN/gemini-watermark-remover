@@ -32,6 +32,23 @@ class Settings(BaseSettings):
     lama_model: str = "lama"
     device: str = "cpu"  # cpu | cuda
 
+    # LaMa (IOPaint). For very large images IOPaint can tile; "Original" sends the
+    # full frame, "Resize"/"Crop" trade fidelity for VRAM. See IOPaint docs.
+    lama_hd_strategy: str = "Crop"  # Original | Resize | Crop
+
+    # ProPainter. The model + weights are NOT vendored (S-Lab NON-COMMERCIAL);
+    # point WM_PROPAINTER_DIR at your own clone of https://github.com/sczhou/ProPainter
+    # (with weights fetched per upstream). The adapter drives its inference script
+    # as a subprocess and composites the result back over untouched pixels.
+    propainter_dir: str = ""  # path to a ProPainter checkout; empty ⇒ backend unavailable
+    propainter_python: str = ""  # python to run it with; empty ⇒ this interpreter
+    propainter_neighbor_length: int = 10
+    propainter_ref_stride: int = 10
+    propainter_subvideo_length: int = 80
+    propainter_raft_iter: int = 20
+    propainter_fp16: bool = True
+    propainter_timeout_s: int = 3600
+
     @property
     def uploads_dir(self) -> Path:
         return self.data_dir / "uploads"
