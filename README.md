@@ -9,6 +9,39 @@ API, no analytics, no telemetry on your media. The processing math is
 deterministic (reverse-alpha compositing), not generative inpainting, so the
 result is predictable and never hallucinates detail.
 
+> **This repository hosts four related projects.** The rest of this README
+> documents **OmniClean**, the browser app (rooted at `src/`). The other three
+> make up an optional server-side stack for heavier, model-based removal — see
+> [Projects in this repository](#projects-in-this-repository) below.
+
+---
+
+## Projects in this repository
+
+| Path       | Name         | What it is |
+|------------|--------------|------------|
+| `src/`     | **OmniClean**  | Local-first browser app (this README). Never uploads media; deterministic reverse-alpha + exemplar inpainting in Web Workers / WebCodecs. |
+| `vidfill/` | **vidfill**    | Standalone Python library for flow-guided, retrieval-based video inpainting (user-drawn masks). Apache-2.0. |
+| `server/`  | **wmserver**   | FastAPI service + async worker queue exposing image/video removal over HTTP. Pluggable backends (`auto` → LaMa / ProPainter → classical OpenCV + `vidfill` fallback). |
+| `web/`     | **wmweb**      | Next.js (App Router) frontend for **wmserver** — upload, mark a region, submit, compare, download. |
+
+**OmniClean is fully self-contained** and needs none of the others — it is a
+static site (`npm run build` → `dist/`). The server stack (`vidfill` + `wmserver`
++ `wmweb`) is a separate, opt-in path for GPU model backends where media *is*
+uploaded to your own server.
+
+### Run the server stack (web + api) as one unit
+
+```bash
+docker compose up --build      # builds wmserver (CPU) + wmweb
+# open http://localhost:3000    (API on http://localhost:8000)
+```
+
+This runs the **classical CPU** backends (OpenCV + `vidfill`), so it works
+without a GPU. For LaMa / ProPainter, base the API image on CUDA and enable the
+extras — see [`server/README.md`](server/README.md). Note ProPainter is
+**non-commercial** licensed (flagged in `server/NOTICE`).
+
 ---
 
 ## What it does

@@ -1,0 +1,39 @@
+# One-command stack: FastAPI worker (wmserver) + Next.js frontend (wmweb).
+# Classical CPU backends only (no GPU); for the model backends see server/README.
+#
+#   docker compose up --build
+#   open http://localhost:3000
+#
+services:
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      WM_DATA_DIR: /data
+      WM_QUEUE_BACKEND: memory
+      WM_WORKER_CONCURRENCY: "2"
+      WM_IMAGE_BACKEND: auto
+      WM_VIDEO_BACKEND: auto
+      # Allow the web container's browser origin through CORS.
+      WM_CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
+    volumes:
+      - wm-data:/data
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        # Baked into the client bundle at build time. The browser (not the web
+        # container) talks to the API, so this is the host-visible API URL.
+        NEXT_PUBLIC_API_BASE: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  wm-data:
